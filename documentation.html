@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Server Plugin Documentation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Game Server Plugin Documentation</h1>
+    
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        <ol>
+            <li><a href="#overview">Plugin System Overview</a></li>
+            <li><a href="#getting-started">Getting Started</a></li>
+            <li><a href="#hooks-reference">Hooks Reference</a></li>
+            <li><a href="#api-reference">API Reference</a></li>
+            <li><a href="#examples">Example Plugins</a></li>
+            <li><a href="#best-practices">Best Practices</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+        </ol>
+    </div>
+
+    <div class="section" id="overview">
+        <h2>1. Plugin System Overview</h2>
+        <p>Extend and modify game behavior through event-driven hooks. Key features:</p>
+        <ul>
+            <li>Real-time game state manipulation</li>
+            <li>Custom action handling</li>
+            <li>Player/game data persistence</li>
+            <li>Network event interception</li>
+            <li>Resource management systems</li>
+        </ul>
+        <a href="#" class="back-to-top">↑ Top</a>
+    </div>
+
+    <div class="section" id="hooks-reference">
+        <h2>3. Hooks Reference</h2>
+        <table>
+            <tr>
+                <th>Hook</th>
+                <th>Trigger</th>
+                <th>Context</th>
+            </tr>
+            <tr>
+                <td><code>game_init</code></td>
+                <td>Server startup</td>
+                <td><code>{'game': GameState}</code></td>
+            </tr>
+            <tr>
+                <td><code>player_connect</code></td>
+                <td>New connection</td>
+                <td><code>{'player': PlayerState, 'game': GameState}</code></td>
+            </tr>
+            <tr>
+                <td><code>turn_start</code></td>
+                <td>Turn begins</td>
+                <td><code>{'player': PlayerState, 'game': GameState, 'turn_number': int}</code></td>
+            </tr>
+            <tr>
+                <td><code>before_action</code></td>
+                <td>Pre-action processing</td>
+                <td><code>{'action': str, 'player': PlayerState, 'game': GameState}</code></td>
+            </tr>
+            <tr>
+                <td><code>after_action</code></td>
+                <td>Post-action processing</td>
+                <td><code>{'action': str, 'result': dict, 'player': PlayerState, 'game': GameState}</code></td>
+            </tr>
+            <tr>
+                <td><code>damage_calc</code></td>
+                <td>Damage calculation</td>
+                <td><code>{'base_damage': int, 'attacker': PlayerState, 'defender': PlayerState, 'game': GameState}</code></td>
+            </tr>
+            <tr>
+                <td><code>heal_calc</code></td>
+                <td>Healing calculation</td>
+                <td><code>{'base_heal': int, 'player': PlayerState, 'game': GameState}</code></td>
+            </tr>
+            <tr>
+                <td><code>game_over</code></td>
+                <td>Win condition check</td>
+                <td><code>{'game': GameState, 'players': list}</code></td>
+            </tr>
+            <tr>
+                <td><code>turn_end</code></td>
+                <td>Turn completion</td>
+                <td><code>{'player': PlayerState, 'game': GameState, 'turn_number': int}</code></td>
+            </tr>
+        </table>
+        <a href="#" class="back-to-top">↑ Top</a>
+    </div>
+
+    <div class="section" id="api-reference">
+        <h2>4. API Reference</h2>
+        
+        <h3>GameState Object</h3>
+        <pre><code>{
+    players: List[PlayerState],  # Connected players
+    current_turn: int,           # 0 or 1
+    running: bool,               # Game active
+    custom_data: dict,           # Plugin storage
+    turn_count: int              # Total turns
+}</code></pre>
+
+        <h3>PlayerState Object</h3>
+        <pre><code>{
+    id: int,                     # 0 or 1
+    conn: socket.socket,         # Network connection
+    health: int,                 # Current HP (0-100)
+    mana: int,                   # Magic resource
+    defending: bool,             # Defense state
+    heals: int,                  # Remaining heals
+    custom_data: dict            # Plugin storage
+}</code></pre>
+        <a href="#" class="back-to-top">↑ Top</a>
+    </div>
+
+    <div class="section" id="examples">
+        <h2>5. Example Plugins</h2>
+        
+        <h3>Critical Strike</h3>
+        <pre><code>def register(pm):
+    pm.add_hook('damage_calc', critical_strike)
+
+def critical_strike(ctx):
+    if random.random() < 0.15:
+        ctx['damage'] *= 2.5
+        ctx['message'] = "CRITICAL STRIKE!"
+    return ctx</code></pre>
+
+        <h3>Poison System</h3>
+        <pre><code>def register(pm):
+    pm.add_hook('before_action', apply_poison)
+    pm.add_hook('turn_start', poison_damage)
+
+def apply_poison(ctx):
+    if ctx['action'] == 'poison_attack':
+        if ctx['player'].mana >= 20:
+            ctx['defender'].custom_data['poisoned'] = 3
+            ctx['player'].mana -= 20
+            ctx['action'] = None  # Cancel default action
+
+def poison_damage(ctx):
+    if ctx['player'].custom_data.get('poisoned', 0) > 0:
+        ctx['player'].health -= 15
+        ctx['player'].custom_data['poisoned'] -= 1
+        ctx['player'].conn.send("You take poison damage!".encode())</code></pre>
+        <a href="#" class="back-to-top">↑ Top</a>
+    </div>
+
+    <div class="section" id="best-practices">
+        <h2>6. Best Practices</h2>
+        
+        <div class="warning">
+            <h3>Important Security Notes</h3>
+            <ul>
+                <li>Never load untrusted plugins</li>
+                <li>Validate all player input</li>
+                <li>Use isolated namespaces in custom_data</li>
+            </ul>
+        </div>
+
+        <h3>Performance Tips</h3>
+        <ul>
+            <li>Cache expensive calculations</li>
+            <li>Use efficient data structures</li>
+            <li>Avoid blocking operations in hooks</li>
+            <li>Limit network calls in critical paths</li>
+        </ul>
+
+        <h3>Data Management</h3>
+        <pre><code># Good practice
+player.custom_data['myplugin'] = {
+    'level': 5,
+    'xp': 1200
+}
+
+# Bad practice - direct manipulation
+player.health = 200  # Overrides core game logic</code></pre>
+        <a href="#" class="back-to-top">↑ Top</a>
+    </div>
+
+    <div class="section" id="troubleshooting">
+        <h2>7. Troubleshooting</h2>
+        
+        <h3>Common Issues</h3>
+        <table>
+            <tr>
+                <th>Symptom</th>
+                <th>Solution</th>
+            </tr>
+            <tr>
+                <td>Plugin not loading</td>
+                <td>Check file permissions and Python syntax</td>
+            </tr>
+            <tr>
+                <td>Hooks not firing</td>
+                <td>Verify hook name spelling and registration</td>
+            </tr>
+            <tr>
+                <td>Unexpected game state</td>
+                <td>Use debug logging in hooks</td>
+            </tr>
+        </table>
+
+        <h3>Debugging Template</h3>
+        <pre><code>def debug_hook(ctx):
+    print(f"[DEBUG] Hook {__name__} received:")
+    for key in ctx:
+        print(f" - {key}: {type(ctx[key])}")
+    return ctx</code></pre>
+        <a href="#" class="back-to-top">↑ Top</a>
+    </div>
+
+</body>
+</html>
